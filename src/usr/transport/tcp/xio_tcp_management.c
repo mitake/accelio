@@ -2454,18 +2454,41 @@ static int xio_tcp_is_valid_in_req(struct xio_msg *msg)
 	nents		= tbl_nents(sgtbl_ops, sgtbl);
 	max_nents	= tbl_max_nents(sgtbl_ops, sgtbl);
 
-	if ((nents > (unsigned long)tcp_options.max_in_iovsz) ||
-	    (nents > max_nents) ||
-	    (max_nents > (unsigned long)tcp_options.max_in_iovsz)) {
+	if (nents > (unsigned long)tcp_options.max_in_iovsz) {
+		DEBUG_LOG("message has a number of entries (%lu) which"
+			  " is larger than the maximum number configured with"
+			  " TCP option (%d)\n", nents,
+			  tcp_options.max_in_iovsz);
 		return 0;
 	}
 
-	if (vmsg->sgl_type == XIO_SGL_TYPE_IOV && nents > XIO_IOVLEN)
+	if (nents > max_nents) {
+		DEBUG_LOG("message has a number of entries (%lu) which"
+			  " is larger than the maximum number configured with"
+			  " per message option (%d)\n", nents, max_nents);
 		return 0;
+	}
+
+	if (max_nents > (unsigned long)tcp_options.max_in_iovsz) {
+		DEBUG_LOG("per message option has a number of entries (%lu)"
+			  " which is larger than the maximum number configured"
+			  " with TCP option (%d)\n", max_nents,
+			  tcp_options.max_in_iovsz);
+		return 0;
+	}
+
+	if (vmsg->sgl_type == XIO_SGL_TYPE_IOV && nents > XIO_IOVLEN) {
+		DEBUG_LOG("message type is XIO_SGL_TYPE_IOV and a number of"
+			  " entries (%lu) is larger than limit (%d)\n",
+			  nents, XIO_IOVLEN);
+		return 0;
+	}
 
 	if (vmsg->header.iov_base &&
-	    (vmsg->header.iov_len == 0))
+	    (vmsg->header.iov_len == 0)) {
+		DEBUG_LOG("message has a header but its length is 0\n");
 		return 0;
+	}
 
 	for_each_sge(sgtbl, sgtbl_ops, sge, i) {
 		if (sge_mr(sgtbl_ops, sge))
